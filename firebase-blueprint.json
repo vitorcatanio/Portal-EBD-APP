@@ -1,0 +1,122 @@
+{
+  "entities": {
+    "Professor": {
+      "title": "Professor",
+      "description": "Cadastro de professores da EBD",
+      "type": "object",
+      "properties": {
+        "nome": { "type": "string" },
+        "telefone": { "type": "string" },
+        "email": { "type": "string" }
+      },
+      "required": ["nome", "telefone"]
+    },
+    "Revista": {
+      "title": "Revista",
+      "description": "Revistas de Trimestre para as lições",
+      "type": "object",
+      "properties": {
+        "nome": { "type": "string" },
+        "trimestre": { "type": "string" },
+        "ano": { "type": "integer" },
+        "editora": { "type": "string" }
+      },
+      "required": ["nome", "trimestre", "ano"]
+    },
+    "Turma": {
+      "title": "Turma",
+      "description": "Turmas e salas da EBD",
+      "type": "object",
+      "properties": {
+        "nome": { "type": "string" },
+        "professorId": { "type": "string" },
+        "sala": { "type": "string" },
+        "faixaEtaria": { "type": "string" },
+        "revistaId": { "type": "string" },
+        "observacoes": { "type": "string" }
+      },
+      "required": ["nome", "professorId", "revistaId"]
+    },
+    "Aluno": {
+      "title": "Aluno",
+      "description": "Alunos matriculados na EBD",
+      "type": "object",
+      "properties": {
+        "nome": { "type": "string" },
+        "dataNascimento": { "type": "string" },
+        "telefone": { "type": "string" },
+        "endereco": { "type": "string" },
+        "turmaId": { "type": "string" },
+        "observacoes": { "type": "string" }
+      },
+      "required": ["nome", "dataNascimento", "telefone", "turmaId"]
+    },
+    "FrequenciaEBD": {
+      "title": "FrequenciaEBD",
+      "description": "Lançamento de frequências da EBD",
+      "type": "object",
+      "properties": {
+        "turmaId": { "type": "string" },
+        "data": { "type": "string" },
+        "hora": { "type": "string" },
+        "presencas": { "type": "object" }
+      },
+      "required": ["turmaId", "data", "hora", "presencas"]
+    },
+    "Membro": {
+      "title": "Membro",
+      "description": "Membros da Congregação para o Culto Solene",
+      "type": "object",
+      "properties": {
+        "nome": { "type": "string" },
+        "dataNascimento": { "type": "string" },
+        "telefone": { "type": "string" },
+        "turmaId": { "type": "string" },
+        "observacoes": { "type": "string" }
+      },
+      "required": ["nome", "dataNascimento", "telefone"]
+    },
+    "FrequenciaCulto": {
+      "title": "FrequenciaCulto",
+      "description": "Lançamento de frequências do Culto Solene",
+      "type": "object",
+      "properties": {
+        "data": { "type": "string" },
+        "hora": { "type": "string" },
+        "nomeCulto": { "type": "string" },
+        "presencas": { "type": "object" }
+      },
+      "required": ["data", "hora", "nomeCulto", "presencas"]
+    }
+  },
+  "firestore": {
+    "/professores/{professorId}": {
+      "schema": "Professor",
+      "description": "Collection of teachers"
+    },
+    "/revistas/{revistaId}": {
+      "schema": "Revista",
+      "description": "Collection of quarterly magazines"
+    },
+    "/turmas/{turmaId}": {
+      "schema": "Turma",
+      "description": "Collection of classes"
+    },
+    "/alunos/{alunoId}": {
+      "schema": "Aluno",
+      "description": "Collection of enrolled students"
+    },
+    "/frequencia_ebd/{frequenciaEbdId}": {
+      "schema": "FrequenciaEBD",
+      "description": "Collection of Sunday school attendance records"
+    },
+    "/membros/{membroId}": {
+      "schema": "Membro",
+      "description": "Collection of congregation members"
+    },
+    "/frequencia_culto/{frequenciaCultoId}": {
+      "schema": "FrequenciaCulto",
+      "description": "Collection of main service attendance records"
+    }
+  }
+}

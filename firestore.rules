@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net: default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Professores collection
+    match /professores/{professorId} {
+      allow read, write: if true;
+    }
+
+    // Revistas collection
+    match /revistas/{revistaId} {
+      allow read, write: if true;
+    }
+
+    // Turmas collection
+    match /turmas/{turmaId} {
+      allow read, write: if true;
+    }
+
+    // Alunos collection
+    match /alunos/{alunoId} {
+      allow read, write: if true;
+    }
+
+    // Frequencia EBD collection
+    match /frequencia_ebd/{frequenciaEbdId} {
+      allow read, write: if true;
+    }
+
+    // Membros collection
+    match /membros/{membroId} {
+      allow read, write: if true;
+    }
+
+    // Frequencia Culto collection
+    match /frequencia_culto/{frequenciaCultoId} {
+      allow read, write: if true;
+    }
+
+    // Usuarios collection (for user approvals and roles)
+    match /usuarios/{usuarioId} {
+      allow read, write: if true;
+    }
+  }
+}

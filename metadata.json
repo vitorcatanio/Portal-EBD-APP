@@ -1,0 +1,6 @@
+{
+  "name": "Portal EBD",
+  "description": "Sistema completo para gerenciamento de turmas, professores, alunos, revistas e controle de frequência da Escola Bíblica Dominical e do Culto Solene.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
