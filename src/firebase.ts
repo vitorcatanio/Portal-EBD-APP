@@ -13,5 +13,5 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-export const db = initializeFirestore(app, {}, "ai-studio-b0bf4824-f636-474a-a6c0-d002343d10c8");
+export const db = initializeFirestore(app, {}, "ai-studio-0ba6ccd5-6e72-4b98-905b-d1ae26b07d4f");
 export const auth = getAuth(app);
