@@ -95,7 +95,7 @@ export default function CultoSoleneTab({ turmas, onRefresh }: CultoSoleneTabProp
           nome: nome.trim(),
           dataNascimento,
           telefone: telefone.trim(),
-          turmaId: turmaId || undefined,
+          turmaId: turmaId || "",
           observacoes: observacoes.trim() || undefined
         });
       } else {
@@ -103,7 +103,7 @@ export default function CultoSoleneTab({ turmas, onRefresh }: CultoSoleneTabProp
           nome: nome.trim(),
           dataNascimento,
           telefone: telefone.trim(),
-          turmaId: turmaId || undefined,
+          turmaId: turmaId || "",
           observacoes: observacoes.trim() || undefined
         });
       }
