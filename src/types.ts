@@ -62,6 +62,7 @@ export interface Usuario {
   id: string;
   uid: string;
   email: string;
-  approved: boolean;
+  status: "pendente" | "aprovado";
+  approved?: boolean;
   createdAt: string;
 }

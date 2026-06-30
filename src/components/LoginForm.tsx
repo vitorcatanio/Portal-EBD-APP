@@ -4,7 +4,8 @@ import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail
 } from "firebase/auth";
-import { auth } from "../firebase";
+import { auth, db } from "../firebase";
+import { doc, getDoc } from "firebase/firestore";
 import { createOrUpdateUsuario } from "../dbService";
 import { Lock, Mail, Loader2, Sparkles, AlertCircle, CheckCircle, Eye, EyeOff } from "lucide-react";
 
@@ -47,6 +48,14 @@ export default function LoginForm() {
     }
   };
 
+  React.useEffect(() => {
+    const reason = sessionStorage.getItem("auth_blocked_reason");
+    if (reason) {
+      setError(reason);
+      sessionStorage.removeItem("auth_blocked_reason");
+    }
+  }, []);
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -79,22 +88,55 @@ export default function LoginForm() {
         
         // Master admin email auto-approved, others start as pending
         const isMasterAdmin = cleanEmail === "vitorcatanio@gmail.com";
+        const status = isMasterAdmin ? "aprovado" : "pendente";
         
         // Write status profile to Firestore
         await createOrUpdateUsuario(user.uid, {
           email: cleanEmail,
-          approved: isMasterAdmin,
+          status,
           createdAt: new Date().toISOString()
         });
 
         if (isMasterAdmin) {
           setSuccess("Conta administrativa criada com sucesso! Carregando...");
         } else {
-          setSuccess("Cadastro realizado com sucesso! Aguarde a aprovação do administrador para acessar o painel.");
+          // Log out immediately and show pending message
+          await auth.signOut();
+          setError("Seu cadastro está aguardando aprovação do administrador.");
+          setLoading(false);
+          return;
         }
       } else {
         // Sign in with Firebase Auth
-        await signInWithEmailAndPassword(auth, cleanEmail, password);
+        const credential = await signInWithEmailAndPassword(auth, cleanEmail, password);
+        const user = credential.user;
+        
+        const isMasterAdmin = cleanEmail === "vitorcatanio@gmail.com";
+        if (!isMasterAdmin) {
+          // Check profile status
+          const userDocRef = doc(db, "usuarios", user.uid);
+          const userSnapshot = await getDoc(userDocRef);
+          let currentStatus = "pendente";
+          
+          if (userSnapshot.exists()) {
+            const data = userSnapshot.data();
+            currentStatus = data.status || (data.approved ? "aprovado" : "pendente");
+          } else {
+            // Document doesn't exist, create one as pending
+            await createOrUpdateUsuario(user.uid, {
+              email: cleanEmail,
+              status: "pendente",
+              createdAt: new Date().toISOString()
+            });
+          }
+          
+          if (currentStatus === "pendente") {
+            await auth.signOut();
+            setError("Seu cadastro está aguardando aprovação do administrador.");
+            setLoading(false);
+            return;
+          }
+        }
         setSuccess("Login efetuado com sucesso!");
       }
     } catch (err: any) {

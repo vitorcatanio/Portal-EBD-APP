@@ -73,29 +73,49 @@ export default function App() {
   // Auth Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
       if (currentUser) {
         try {
+          const isMasterAdmin = currentUser.email?.toLowerCase().trim() === "vitorcatanio@gmail.com";
           const userDocRef = doc(db, "usuarios", currentUser.uid);
           const userSnapshot = await getDoc(userDocRef);
+          let currentStatus: "pendente" | "aprovado" = "pendente";
+
           if (userSnapshot.exists()) {
-            setUserProfile(userSnapshot.data() as Usuario);
+            const data = userSnapshot.data();
+            currentStatus = data.status || (data.approved ? "aprovado" : "pendente");
           } else {
-            const isMasterAdmin = currentUser.email?.toLowerCase().trim() === "vitorcatanio@gmail.com";
+            currentStatus = isMasterAdmin ? "aprovado" : "pendente";
             const profile = {
               uid: currentUser.uid,
               email: currentUser.email || "",
-              approved: isMasterAdmin,
+              status: currentStatus,
               createdAt: new Date().toISOString()
             };
             await setDoc(userDocRef, profile);
-            setUserProfile({ id: currentUser.uid, ...profile });
+          }
+
+          if (currentStatus === "pendente" && !isMasterAdmin) {
+            sessionStorage.setItem("auth_blocked_reason", "Seu cadastro está aguardando aprovação do administrador.");
+            await signOut(auth);
+            setUser(null);
+            setUserProfile(null);
+          } else {
+            setUser(currentUser);
+            setUserProfile({
+              id: currentUser.uid,
+              uid: currentUser.uid,
+              email: currentUser.email || "",
+              status: currentStatus,
+              createdAt: userSnapshot.exists() ? userSnapshot.data()?.createdAt : new Date().toISOString()
+            });
           }
         } catch (err) {
           console.error("Erro ao carregar perfil do usuário:", err);
           setUserProfile(null);
+          setUser(null);
         }
       } else {
+        setUser(null);
         setUserProfile(null);
       }
       setAuthLoading(false);
@@ -226,7 +246,7 @@ export default function App() {
                   if (userSnapshot.exists()) {
                     const prof = userSnapshot.data() as Usuario;
                     setUserProfile(prof);
-                    if (prof.approved) {
+                    if (prof.status === "aprovado" || (prof as any).approved === true) {
                       window.location.reload();
                     } else {
                       alert("Seu cadastro ainda está em análise. Fale com o administrador!");

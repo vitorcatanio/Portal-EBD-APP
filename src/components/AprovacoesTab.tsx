@@ -25,12 +25,14 @@ export default function AprovacoesTab() {
     loadUsuarios();
   }, []);
 
+  const isUserApproved = (u: Usuario) => u.status === "aprovado" || u.approved === true;
+
   const handleApprove = async (uid: string) => {
     setActioningId(uid);
     try {
-      await updateUsuarioStatus(uid, true);
+      await updateUsuarioStatus(uid, "aprovado");
       // Update local state
-      setUsuarios(prev => prev.map(u => u.uid === uid ? { ...u, approved: true } : u));
+      setUsuarios(prev => prev.map(u => u.uid === uid ? { ...u, status: "aprovado", approved: true } : u));
     } catch (err) {
       console.error("Erro ao aprovar usuário:", err);
     } finally {
@@ -57,7 +59,7 @@ export default function AprovacoesTab() {
     u.email !== "vitorcatanio@gmail.com" // Hide master admin from list
   );
 
-  const pendingCount = filteredUsuarios.filter(u => !u.approved).length;
+  const pendingCount = filteredUsuarios.filter(u => !isUserApproved(u)).length;
 
   return (
     <div className="space-y-6">
@@ -137,24 +139,24 @@ export default function AprovacoesTab() {
               <div 
                 key={u.uid} 
                 className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
-                  !u.approved ? "bg-amber-50/20" : "hover:bg-slate-50/30"
+                  !isUserApproved(u) ? "bg-amber-50/20" : "hover:bg-slate-50/30"
                 }`}
               >
                 {/* User Info */}
                 <div className="flex items-center gap-3 min-w-0">
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                    u.approved ? "bg-blue-50 text-blue-600 border border-blue-100" : "bg-amber-50 text-amber-600 border border-amber-100 animate-pulse-slow"
+                    isUserApproved(u) ? "bg-blue-50 text-blue-600 border border-blue-100" : "bg-amber-50 text-amber-600 border border-amber-100 animate-pulse-slow"
                   }`}>
-                    {u.approved ? <Check className="w-4.5 h-4.5" /> : <Clock className="w-4.5 h-4.5" />}
+                    {isUserApproved(u) ? <Check className="w-4.5 h-4.5" /> : <Clock className="w-4.5 h-4.5" />}
                   </div>
 
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold text-slate-800 truncate block">{u.email}</span>
                       <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${
-                        u.approved ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                        isUserApproved(u) ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
                       }`}>
-                        {u.approved ? "Aprovado" : "Pendente"}
+                        {isUserApproved(u) ? "Aprovado" : "Pendente"}
                       </span>
                     </div>
                     <span className="text-[10px] text-slate-400 block mt-0.5">
@@ -165,7 +167,7 @@ export default function AprovacoesTab() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                  {!u.approved ? (
+                  {!isUserApproved(u) ? (
                     <>
                       <button
                         onClick={() => handleApprove(u.uid)}

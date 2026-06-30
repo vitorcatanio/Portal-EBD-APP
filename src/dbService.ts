@@ -433,11 +433,11 @@ export const createOrUpdateUsuario = async (uid: string, userProfile: Omit<Usuar
   }
 };
 
-export const updateUsuarioStatus = async (uid: string, approved: boolean): Promise<void> => {
+export const updateUsuarioStatus = async (uid: string, status: "pendente" | "aprovado"): Promise<void> => {
   const path = `usuarios/${uid}`;
   try {
     const docRef = doc(db, "usuarios", uid);
-    await updateDoc(docRef, { approved });
+    await updateDoc(docRef, { status });
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, path);
   }
