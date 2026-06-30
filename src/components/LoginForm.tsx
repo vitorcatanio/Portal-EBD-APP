@@ -100,43 +100,11 @@ export default function LoginForm() {
         if (isMasterAdmin) {
           setSuccess("Conta administrativa criada com sucesso! Carregando...");
         } else {
-          // Log out immediately and show pending message
-          await auth.signOut();
-          setError("Seu cadastro está aguardando aprovação do administrador.");
-          setLoading(false);
-          return;
+          setSuccess("Cadastro realizado com sucesso! Carregando...");
         }
       } else {
         // Sign in with Firebase Auth
-        const credential = await signInWithEmailAndPassword(auth, cleanEmail, password);
-        const user = credential.user;
-        
-        const isMasterAdmin = cleanEmail === "vitorcatanio@gmail.com";
-        if (!isMasterAdmin) {
-          // Check profile status
-          const userDocRef = doc(db, "usuarios", user.uid);
-          const userSnapshot = await getDoc(userDocRef);
-          let currentStatus = "pendente";
-          
-          if (userSnapshot.exists()) {
-            const data = userSnapshot.data();
-            currentStatus = data.status || (data.approved ? "aprovado" : "pendente");
-          } else {
-            // Document doesn't exist, create one as pending
-            await createOrUpdateUsuario(user.uid, {
-              email: cleanEmail,
-              status: "pendente",
-              createdAt: new Date().toISOString()
-            });
-          }
-          
-          if (currentStatus === "pendente") {
-            await auth.signOut();
-            setError("Seu cadastro está aguardando aprovação do administrador.");
-            setLoading(false);
-            return;
-          }
-        }
+        await signInWithEmailAndPassword(auth, cleanEmail, password);
         setSuccess("Login efetuado com sucesso!");
       }
     } catch (err: any) {

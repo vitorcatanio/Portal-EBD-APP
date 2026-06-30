@@ -9,7 +9,7 @@ import {
 import { Turma, Professor, Aluno, Revista, Membro, Usuario } from "./types";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "./firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 
 // Subcomponents imports
 import TurmasTab from "./components/TurmasTab";
@@ -72,55 +72,76 @@ export default function App() {
 
   // Auth Listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    let unsubscribeSnapshot: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      // Unsubscribe from any previous profile snapshot first
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+        unsubscribeSnapshot = null;
+      }
+
       if (currentUser) {
         try {
           const isMasterAdmin = currentUser.email?.toLowerCase().trim() === "vitorcatanio@gmail.com";
           const userDocRef = doc(db, "usuarios", currentUser.uid);
+          
+          // Let's check/initialize the profile document first
           const userSnapshot = await getDoc(userDocRef);
-          let currentStatus: "pendente" | "aprovado" = "pendente";
-
-          if (userSnapshot.exists()) {
-            const data = userSnapshot.data();
-            currentStatus = data.status || (data.approved ? "aprovado" : "pendente");
-          } else {
-            currentStatus = isMasterAdmin ? "aprovado" : "pendente";
+          if (!userSnapshot.exists()) {
+            const initialStatus = isMasterAdmin ? "aprovado" : "pendente";
             const profile = {
               uid: currentUser.uid,
               email: currentUser.email || "",
-              status: currentStatus,
+              status: initialStatus,
               createdAt: new Date().toISOString()
             };
             await setDoc(userDocRef, profile);
           }
 
-          if (currentStatus === "pendente" && !isMasterAdmin) {
-            sessionStorage.setItem("auth_blocked_reason", "Seu cadastro está aguardando aprovação do administrador.");
-            await signOut(auth);
-            setUser(null);
-            setUserProfile(null);
-          } else {
-            setUser(currentUser);
-            setUserProfile({
-              id: currentUser.uid,
-              uid: currentUser.uid,
-              email: currentUser.email || "",
-              status: currentStatus,
-              createdAt: userSnapshot.exists() ? userSnapshot.data()?.createdAt : new Date().toISOString()
-            });
-          }
+          // Start listening to the profile in real-time
+          unsubscribeSnapshot = onSnapshot(userDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+              const data = docSnap.data();
+              const currentStatus = data.status || (data.approved ? "aprovado" : "pendente");
+              
+              setUser(currentUser);
+              setUserProfile({
+                id: currentUser.uid,
+                uid: currentUser.uid,
+                email: currentUser.email || "",
+                status: currentStatus as "pendente" | "aprovado",
+                createdAt: data.createdAt || new Date().toISOString()
+              });
+            } else {
+              setUser(currentUser);
+              setUserProfile(null);
+            }
+            setAuthLoading(false);
+          }, (err) => {
+            console.error("Erro no onSnapshot do perfil:", err);
+            setAuthLoading(false);
+          });
+
         } catch (err) {
           console.error("Erro ao carregar perfil do usuário:", err);
           setUserProfile(null);
           setUser(null);
+          setAuthLoading(false);
         }
       } else {
         setUser(null);
         setUserProfile(null);
+        setAuthLoading(false);
       }
-      setAuthLoading(false);
     });
-    return () => unsubscribe();
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+      }
+    };
   }, []);
 
   const handleLogout = async () => {
@@ -212,7 +233,8 @@ export default function App() {
 
   // Check if the user has a registered profile and is approved
   const isMasterAdmin = user.email?.toLowerCase().trim() === "vitorcatanio@gmail.com";
-  if (userProfile && !userProfile.approved && !isMasterAdmin) {
+  const isPending = userProfile && userProfile.status === "pendente" && !isMasterAdmin;
+  if (isPending) {
     return (
       <div id="pending-approval-container" className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative overflow-hidden font-sans">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
