@@ -31,6 +31,7 @@ export interface Aluno {
   endereco?: string;
   turmaId: string; // Pertence a apenas uma turma
   observacoes?: string;
+  statusMembresia?: "comungante" | "nao_comungante";
 }
 
 export interface FrequenciaEBD {
@@ -46,7 +47,9 @@ export interface Membro {
   nome: string;
   dataNascimento: string; // YYYY-MM-DD
   telefone: string;
+  endereco?: string;
   turmaId?: string; // Turma da EBD (opcional)
+  statusMembresia?: "comungante" | "nao_comungante";
   observacoes?: string;
 }
 

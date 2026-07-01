@@ -208,7 +208,7 @@ export const deleteTurma = async (id: string): Promise<void> => {
 
 // --- ALUNOS ---
 export const getAlunos = async (): Promise<Aluno[]> => {
-  const path = "alunos";
+  const path = "membros";
   try {
     const colRef = collection(db, path);
     const q = query(colRef, orderBy("nome"));
@@ -221,7 +221,7 @@ export const getAlunos = async (): Promise<Aluno[]> => {
 };
 
 export const addAluno = async (aluno: Omit<Aluno, "id">): Promise<string> => {
-  const path = "alunos";
+  const path = "membros";
   try {
     const colRef = collection(db, path);
     const docRef = await addDoc(colRef, aluno);
@@ -233,7 +233,7 @@ export const addAluno = async (aluno: Omit<Aluno, "id">): Promise<string> => {
 };
 
 export const addAlunosBatch = async (alunosList: Omit<Aluno, "id">[]): Promise<void> => {
-  const path = "alunos";
+  const path = "membros";
   try {
     const colRef = collection(db, path);
     for (const aluno of alunosList) {
@@ -245,9 +245,9 @@ export const addAlunosBatch = async (alunosList: Omit<Aluno, "id">[]): Promise<v
 };
 
 export const updateAluno = async (id: string, aluno: Partial<Aluno>): Promise<void> => {
-  const path = `alunos/${id}`;
+  const path = `membros/${id}`;
   try {
-    const docRef = doc(db, "alunos", id);
+    const docRef = doc(db, "membros", id);
     await updateDoc(docRef, aluno);
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, path);
@@ -255,9 +255,9 @@ export const updateAluno = async (id: string, aluno: Partial<Aluno>): Promise<vo
 };
 
 export const deleteAluno = async (id: string): Promise<void> => {
-  const path = `alunos/${id}`;
+  const path = `membros/${id}`;
   try {
-    const docRef = doc(db, "alunos", id);
+    const docRef = doc(db, "membros", id);
     await deleteDoc(docRef);
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
@@ -356,6 +356,18 @@ export const deleteMembro = async (id: string): Promise<void> => {
     await deleteDoc(docRef);
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
+  }
+};
+
+export const addMembrosBatch = async (membrosList: Omit<Membro, "id">[]): Promise<void> => {
+  const path = "membros";
+  try {
+    const colRef = collection(db, path);
+    for (const membro of membrosList) {
+      await addDoc(colRef, membro);
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
   }
 };
 

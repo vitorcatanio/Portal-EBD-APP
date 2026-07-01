@@ -23,6 +23,7 @@ export default function AlunosTab({ alunos, turmas, onRefresh }: AlunosTabProps)
   const [telefone, setTelefone] = useState("");
   const [endereco, setEndereco] = useState("");
   const [turmaId, setTurmaId] = useState("");
+  const [statusMembresia, setStatusMembresia] = useState<"comungante" | "nao_comungante">("comungante");
   const [observacoes, setObservacoes] = useState("");
 
   // Search & Filter State
@@ -48,6 +49,7 @@ export default function AlunosTab({ alunos, turmas, onRefresh }: AlunosTabProps)
     setTelefone("");
     setEndereco("");
     setTurmaId(turmas[0]?.id || "");
+    setStatusMembresia("comungante");
     setObservacoes("");
     setError(null);
     setIsEditing(true);
@@ -60,6 +62,7 @@ export default function AlunosTab({ alunos, turmas, onRefresh }: AlunosTabProps)
     setTelefone(aluno.telefone || "");
     setEndereco(aluno.endereco || "");
     setTurmaId(aluno.turmaId);
+    setStatusMembresia(aluno.statusMembresia || "comungante");
     setObservacoes(aluno.observacoes || "");
     setError(null);
     setIsEditing(true);
@@ -88,6 +91,7 @@ export default function AlunosTab({ alunos, turmas, onRefresh }: AlunosTabProps)
           telefone: telefone.trim(),
           endereco: endereco.trim() || undefined,
           turmaId,
+          statusMembresia,
           observacoes: observacoes.trim() || undefined
         });
       } else {
@@ -98,6 +102,7 @@ export default function AlunosTab({ alunos, turmas, onRefresh }: AlunosTabProps)
           telefone: telefone.trim(),
           endereco: endereco.trim() || undefined,
           turmaId,
+          statusMembresia,
           observacoes: observacoes.trim() || undefined
         });
       }
@@ -182,6 +187,7 @@ export default function AlunosTab({ alunos, turmas, onRefresh }: AlunosTabProps)
         const rowNasc = row["Data de nascimento"] || row["Data de Nascimento"] || row["nascimento"] || row["Nascimento"] || "";
         const rowTel = row["Telefone"] || row["telefone"] || row["Fone"] || "";
         const rowTurmaName = row["Turma"] || row["turma"] || row["Classe"] || "";
+        const rowStatus = row["Comungante"] || row["Membresia"] || row["Status de Membresia"] || row["statusMembresia"] || "";
 
         // Find matching turma ID by name
         let matchedTurmaId = turmas[0]?.id || "";
@@ -194,12 +200,16 @@ export default function AlunosTab({ alunos, turmas, onRefresh }: AlunosTabProps)
           }
         }
 
+        const isNaoComungante = String(rowStatus).toLowerCase().includes("não") || String(rowStatus).toLowerCase().includes("nao");
+        const statusMembresiaVal = (isNaoComungante ? "nao_comungante" : "comungante") as "comungante" | "nao_comungante";
+
         return {
           nome: String(rowNome).trim(),
           dataNascimento: String(rowNasc).trim(),
           telefone: String(rowTel).trim(),
           endereco: "",
           turmaId: matchedTurmaId,
+          statusMembresia: statusMembresiaVal,
           observacoes: "Importado via planilha Excel"
         };
       }).filter(aluno => aluno.nome.length > 0); // Skip empty rows
@@ -444,6 +454,20 @@ export default function AlunosTab({ alunos, turmas, onRefresh }: AlunosTabProps)
           </div>
 
           <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block">Status de Membresia *</label>
+            <select
+              id="aluno-status-membresia-select"
+              value={statusMembresia}
+              onChange={(e) => setStatusMembresia(e.target.value as "comungante" | "nao_comungante")}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+              required
+            >
+              <option value="comungante">Comungante</option>
+              <option value="nao_comungante">Não Comungante</option>
+            </select>
+          </div>
+
+          <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block">Observações (Opcional)</label>
             <textarea
               id="aluno-obs-input"
@@ -523,6 +547,7 @@ export default function AlunosTab({ alunos, turmas, onRefresh }: AlunosTabProps)
                       <th className="p-4 border-b border-slate-100">Nascimento</th>
                       <th className="p-4 border-b border-slate-100">Telefone</th>
                       <th className="p-4 border-b border-slate-100">Endereço</th>
+                      <th className="p-4 border-b border-slate-100">Membresia</th>
                       <th className="p-4 border-b border-slate-100">Turma</th>
                       <th className="p-4 border-b border-slate-100 text-right">Ações</th>
                     </tr>
@@ -545,6 +570,17 @@ export default function AlunosTab({ alunos, turmas, onRefresh }: AlunosTabProps)
                           <td className="p-4 text-slate-500 text-xs">{aluno.dataNascimento || "-"}</td>
                           <td className="p-4 text-slate-500 text-xs">{aluno.telefone || "-"}</td>
                           <td className="p-4 text-slate-500 text-xs max-w-xs truncate">{aluno.endereco || "-"}</td>
+                          <td className="p-4">
+                            {aluno.statusMembresia === "nao_comungante" ? (
+                              <span className="bg-slate-100 text-slate-700 text-xs px-2 py-0.5 rounded-full font-medium inline-block border border-slate-200/50">
+                                Não Comungante
+                              </span>
+                            ) : (
+                              <span className="bg-emerald-50 text-emerald-700 text-xs px-2 py-0.5 rounded-full font-medium inline-block border border-emerald-200/50">
+                                Comungante
+                              </span>
+                            )}
+                          </td>
                           <td className="p-4">
                             <span className="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-full font-medium inline-block">
                               {t ? t.nome : "Sem Turma"}

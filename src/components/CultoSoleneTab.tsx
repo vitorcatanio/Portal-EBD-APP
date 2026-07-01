@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Membro, Turma, FrequenciaCulto } from "../types";
 import { 
-  getMembros, addMembro, updateMembro, deleteMembro,
+  getMembros, addMembro, updateMembro, deleteMembro, addMembrosBatch,
   getFrequenciasCulto, saveFrequenciaCulto, deleteFrequenciaCulto
 } from "../dbService";
 import { 
   Plus, Edit, Trash2, Users, Check, X, AlertCircle, Save, 
-  Search, Calendar, Clock, MapPin, Phone, Info, ClipboardCheck, ArrowLeft, Play, Eye
+  Search, Calendar, Clock, MapPin, Phone, Info, ClipboardCheck, ArrowLeft, Play, Eye,
+  Upload, Download, FileSpreadsheet
 } from "lucide-react";
+import { exportToExcel, readExcelFile } from "../utils/excel";
 
 interface CultoSoleneTabProps {
   turmas: Turma[];
@@ -28,7 +30,13 @@ export default function CultoSoleneTab({ turmas, onRefresh }: CultoSoleneTabProp
   const [dataNascimento, setDataNascimento] = useState("");
   const [telefone, setTelefone] = useState("");
   const [turmaId, setTurmaId] = useState("");
+  const [statusMembresia, setStatusMembresia] = useState<"comungante" | "nao_comungante">("comungante");
   const [observacoes, setObservacoes] = useState("");
+
+  // Excel Import State
+  const [excelImportData, setExcelImportData] = useState<any[] | null>(null);
+  const [mappedImportMembros, setMappedImportMembros] = useState<Omit<Membro, "id">[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Search/Filter state
   const [searchTerm, setSearchTerm] = useState("");
@@ -65,6 +73,7 @@ export default function CultoSoleneTab({ turmas, onRefresh }: CultoSoleneTabProp
     setDataNascimento("");
     setTelefone("");
     setTurmaId("");
+    setStatusMembresia("comungante");
     setObservacoes("");
     setError(null);
     setIsEditingMembro(true);
@@ -76,6 +85,7 @@ export default function CultoSoleneTab({ turmas, onRefresh }: CultoSoleneTabProp
     setDataNascimento(m.dataNascimento || "");
     setTelefone(m.telefone || "");
     setTurmaId(m.turmaId || "");
+    setStatusMembresia(m.statusMembresia || "comungante");
     setObservacoes(m.observacoes || "");
     setError(null);
     setIsEditingMembro(true);
@@ -96,6 +106,7 @@ export default function CultoSoleneTab({ turmas, onRefresh }: CultoSoleneTabProp
           dataNascimento,
           telefone: telefone.trim(),
           turmaId: turmaId || "",
+          statusMembresia,
           observacoes: observacoes.trim() || undefined
         });
       } else {
@@ -104,6 +115,7 @@ export default function CultoSoleneTab({ turmas, onRefresh }: CultoSoleneTabProp
           dataNascimento,
           telefone: telefone.trim(),
           turmaId: turmaId || "",
+          statusMembresia,
           observacoes: observacoes.trim() || undefined
         });
       }
@@ -126,6 +138,98 @@ export default function CultoSoleneTab({ turmas, onRefresh }: CultoSoleneTabProp
       onRefresh();
     } catch (err: any) {
       setError("Erro ao excluir membro: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Excel Export
+  const handleExportMembros = () => {
+    if (membros.length === 0) return;
+    const exportData = membros.map((m) => {
+      const { statusMembresia } = m;
+      const t = turmas.find(t => t.id === m.turmaId);
+      return {
+        "Nome Completo": m.nome,
+        "Data de Nascimento": m.dataNascimento || "Não informada",
+        "Telefone": m.telefone || "Não informado",
+        "Status de Membresia": statusMembresia === "nao_comungante" ? "Não Comungante" : "Comungante",
+        "Turma EBD": t ? t.nome : "Sem turma",
+        "Observações": m.observacoes || ""
+      };
+    });
+    exportToExcel(exportData, "Membros_Portal_EBD", "Membros");
+  };
+
+  // Excel Import File Selection & Parsing
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setError(null);
+      const rows = await readExcelFile(file);
+      if (rows.length === 0) {
+        setError("O arquivo Excel selecionado está vazio.");
+        return;
+      }
+
+      setExcelImportData(rows);
+
+      // Map rows into real member schema
+      const mapped: Omit<Membro, "id">[] = rows.map((row: any) => {
+        const rowNome = row["Nome"] || row["Nome Completo"] || row["nome"] || "";
+        const rowNasc = row["Data de nascimento"] || row["Data de Nascimento"] || row["nascimento"] || row["Nascimento"] || "";
+        const rowTel = row["Telefone"] || row["telefone"] || row["Fone"] || "";
+        const rowTurmaName = row["Turma"] || row["turma"] || row["Classe"] || row["Turma EBD"] || "";
+        const rowStatus = row["Comungante"] || row["Membresia"] || row["Status de Membresia"] || row["statusMembresia"] || "";
+
+        let matchedTurmaId = "";
+        if (rowTurmaName) {
+          const matched = turmas.find(
+            (t) => t.nome.toLowerCase().trim() === String(rowTurmaName).toLowerCase().trim()
+          );
+          if (matched) {
+            matchedTurmaId = matched.id;
+          }
+        }
+
+        const isNaoComungante = String(rowStatus).toLowerCase().includes("não") || String(rowStatus).toLowerCase().includes("nao");
+        const statusMembresiaVal = (isNaoComungante ? "nao_comungante" : "comungante") as "comungante" | "nao_comungante";
+
+        return {
+          nome: String(rowNome).trim(),
+          dataNascimento: String(rowNasc).trim(),
+          telefone: String(rowTel).trim(),
+          turmaId: matchedTurmaId,
+          statusMembresia: statusMembresiaVal,
+          observacoes: "Importado via planilha Excel"
+        };
+      }).filter(m => m.nome.length > 0);
+
+      setMappedImportMembros(mapped);
+    } catch (err: any) {
+      setError("Erro ao ler planilha: " + err.message);
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (mappedImportMembros.length === 0) return;
+    setLoading(true);
+    try {
+      await addMembrosBatch(mappedImportMembros);
+      setExcelImportData(null);
+      setMappedImportMembros([]);
+      await loadData();
+      onRefresh();
+    } catch (err: any) {
+      setError("Erro ao salvar dados importados: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -265,6 +369,16 @@ export default function CultoSoleneTab({ turmas, onRefresh }: CultoSoleneTabProp
         )}
       </div>
 
+      {/* Hidden File Input for Excel Import */}
+      <input
+        id="excel-import-membro-input"
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept=".xlsx, .xls"
+        className="hidden"
+      />
+
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg flex items-start gap-3">
           <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
@@ -272,10 +386,90 @@ export default function CultoSoleneTab({ turmas, onRefresh }: CultoSoleneTabProp
         </div>
       )}
 
+      {/* --- CONFIRMATION SCREEN FOR IMPORT --- */}
+      {subTab === "membros" && excelImportData && (
+        <div id="excel-import-confirmation" className="bg-white border border-slate-100 rounded-xl p-6 shadow-md space-y-4 animate-in fade-in duration-200">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
+            <div className="flex items-center gap-2">
+              <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+              <h3 className="text-lg font-semibold text-slate-800">Confirmar Importação de Membros</h3>
+            </div>
+            <p className="text-xs bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-full font-semibold border border-emerald-200/50">
+              {mappedImportMembros.length} membro(s) detectado(s) para importação
+            </p>
+          </div>
+
+          <div className="overflow-x-auto border border-slate-100 rounded-lg max-h-80">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead className="bg-slate-50 text-slate-600 uppercase text-[10px] tracking-wider sticky top-0">
+                <tr>
+                  <th className="p-3 border-b border-slate-100">Nome</th>
+                  <th className="p-3 border-b border-slate-100">Data de Nascimento</th>
+                  <th className="p-3 border-b border-slate-100">Telefone</th>
+                  <th className="p-3 border-b border-slate-100">Membresia</th>
+                  <th className="p-3 border-b border-slate-100">Turma Designada</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {mappedImportMembros.map((m, idx) => {
+                  const t = turmas.find((x) => x.id === m.turmaId);
+                  return (
+                    <tr key={idx} className="hover:bg-slate-50/50">
+                      <td className="p-3 font-medium text-slate-800">{m.nome}</td>
+                      <td className="p-3 text-slate-500 text-xs">{m.dataNascimento || "-"}</td>
+                      <td className="p-3 text-slate-500 text-xs">{m.telefone || "-"}</td>
+                      <td className="p-3">
+                        {m.statusMembresia === "nao_comungante" ? (
+                          <span className="bg-slate-100 text-slate-700 text-xs px-2 py-0.5 rounded-full font-medium border border-slate-200/50">
+                            Não Comungante
+                          </span>
+                        ) : (
+                          <span className="bg-emerald-50 text-emerald-700 text-xs px-2 py-0.5 rounded-full font-medium border border-emerald-200/50">
+                            Comungante
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-3">
+                        <span className="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-full font-medium">
+                          {t ? t.nome : "Sem Turma"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex gap-3 justify-end pt-3 border-t border-slate-100">
+            <button
+              id="cancel-import-btn"
+              type="button"
+              onClick={() => {
+                setExcelImportData(null);
+                setMappedImportMembros([]);
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg font-medium text-sm transition-all cursor-pointer"
+            >
+              <X className="w-4 h-4" /> Cancelar
+            </button>
+            <button
+              id="confirm-save-import-btn"
+              type="button"
+              disabled={loading}
+              onClick={handleConfirmImport}
+              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-sm transition-all shadow-sm cursor-pointer"
+            >
+              <Check className="w-4 h-4" /> {loading ? "Importando..." : "Confirmar e Salvar"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* --- MEMBROS DIRECTORY VIEW --- */}
-      {subTab === "membros" && !isEditingMembro && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+      {subTab === "membros" && !isEditingMembro && !excelImportData && (
+        <div className="space-y-4 animate-in fade-in duration-200">
+          <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3">
             <div className="relative flex-1 max-w-md">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
               <input
@@ -287,13 +481,32 @@ export default function CultoSoleneTab({ turmas, onRefresh }: CultoSoleneTabProp
                 className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-sm"
               />
             </div>
-            <button
-              id="add-membro-btn"
-              onClick={openAddMembro}
-              className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition-all text-sm cursor-pointer"
-            >
-              <Plus className="w-4 h-4" /> Cadastrar Membro
-            </button>
+            
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                id="export-membros-btn"
+                onClick={handleExportMembros}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold cursor-pointer transition-all bg-white"
+                title="Exportar Membros para Planilha"
+              >
+                <Download className="w-4 h-4 text-slate-500" /> Exportar Planilha
+              </button>
+              <button
+                id="import-membros-btn"
+                onClick={handleImportClick}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold cursor-pointer transition-all bg-white"
+                title="Importar Membros via Planilha Excel (.xlsx)"
+              >
+                <Upload className="w-4 h-4 text-slate-500" /> Importar Planilha
+              </button>
+              <button
+                id="add-membro-btn"
+                onClick={openAddMembro}
+                className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition-all text-sm cursor-pointer"
+              >
+                <Plus className="w-4 h-4" /> Cadastrar Membro
+              </button>
+            </div>
           </div>
 
           {filteredMembros.length === 0 ? (
@@ -311,6 +524,7 @@ export default function CultoSoleneTab({ turmas, onRefresh }: CultoSoleneTabProp
                       <th className="p-4 border-b border-slate-100">Nome</th>
                       <th className="p-4 border-b border-slate-100">Nascimento</th>
                       <th className="p-4 border-b border-slate-100">Telefone</th>
+                      <th className="p-4 border-b border-slate-100">Membresia</th>
                       <th className="p-4 border-b border-slate-100">Turma EBD</th>
                       <th className="p-4 border-b border-slate-100">Observações</th>
                       <th className="p-4 border-b border-slate-100 text-right">Ações</th>
@@ -325,12 +539,23 @@ export default function CultoSoleneTab({ turmas, onRefresh }: CultoSoleneTabProp
                           <td className="p-4 text-slate-500 text-xs">{m.dataNascimento || "-"}</td>
                           <td className="p-4 text-slate-500 text-xs">{m.telefone || "-"}</td>
                           <td className="p-4">
+                            {m.statusMembresia === "nao_comungante" ? (
+                              <span className="bg-slate-100 text-slate-700 text-xs px-2 py-0.5 rounded-full font-medium border border-slate-200/50">
+                                Não Comungante
+                              </span>
+                            ) : (
+                              <span className="bg-emerald-50 text-emerald-700 text-xs px-2 py-0.5 rounded-full font-medium border border-emerald-200/50">
+                                Comungante
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-4">
                             {t ? (
                               <span className="bg-blue-50 text-blue-700 text-xs px-2.5 py-0.5 rounded-full font-medium">
                                 {t.nome}
                               </span>
                             ) : (
-                              <span className="text-slate-400 text-xs">Não frequenta</span>
+                              <span className="text-slate-400 text-xs font-medium">Não frequenta</span>
                             )}
                           </td>
                           <td className="p-4 text-slate-500 text-xs max-w-xs truncate">{m.observacoes || "-"}</td>
@@ -444,6 +669,20 @@ export default function CultoSoleneTab({ turmas, onRefresh }: CultoSoleneTabProp
                   {t.nome}
                 </option>
               ))}
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block">Status de Membresia *</label>
+            <select
+              id="membro-status-membresia-select"
+              value={statusMembresia}
+              onChange={(e) => setStatusMembresia(e.target.value as "comungante" | "nao_comungante")}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+              required
+            >
+              <option value="comungante">Comungante</option>
+              <option value="nao_comungante">Não Comungante</option>
             </select>
           </div>
 
